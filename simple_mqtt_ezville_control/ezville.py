@@ -17,13 +17,6 @@ RS485_DEVICE = {
 
         'power': {'id': '0E', 'cmd': '41', 'ack': 'C1'}
     },
-    'thermostat': {
-        'state': {'id': '36', 'cmd': '81'},
-
-        'power': {'id': '36', 'cmd': '43', 'ack': 'C3'},
-        'away': {'id': '36', 'cmd': '45', 'ack': 'C5'},
-        'target': {'id': '36', 'cmd': '44', 'ack': 'C4'}
-    },
     'plug': {
         'state': {'id': '39', 'cmd': '81'},
 
@@ -60,20 +53,7 @@ DISCOVERY_PAYLOAD = {
         'stat_t': '~/power/state',
         'cmd_t': '~/power/command'
     }],
-    'thermostat': [{
-        '_intg': 'climate',
-        '~': 'ezville/thermostat_{:0>2d}_{:0>2d}',
-        'name': 'ezville_thermostat_{:0>2d}_{:0>2d}',
-        'mode_cmd_t': '~/power/command',
-        'mode_stat_t': '~/power/state',
-        'temp_stat_t': '~/setTemp/state',
-        'temp_cmd_t': '~/setTemp/command',
-        'curr_temp_t': '~/curTemp/state',
-        #        "modes": [ "off", "heat", "fan_only" ],     # 외출 모드는 fan_only로 매핑
-        'modes': ['heat', 'off'],  # 외출 모드는 off로 매핑
-        'min_temp': '5',
-        'max_temp': '40'
-    }],
+
     'plug': [{
         '_intg': 'switch',
         '~': 'ezville/plug_{:0>2d}_{:0>2d}',
@@ -415,53 +395,6 @@ def ezville_loop(config):
                                     if STATE_PACKET:
                                         MSG_CACHE[packet[0:10]] = packet[10:]
 
-                            elif name == 'thermostat':
-                                # room 갯수
-                                rc = int((int(packet[8:10], 16) - 5) / 2)
-                                # room의 조절기 수 (현재 하나 뿐임)
-                                src = 1
-
-                                onoff_state = bin(int(packet[12:14], 16))[2:].zfill(8)
-                                away_state = bin(int(packet[14:16], 16))[2:].zfill(8)
-
-                                for rid in range(1, rc + 1):
-                                    discovery_name = '{}_{:0>2d}_{:0>2d}'.format(name, rid, src)
-
-                                    if discovery_name not in DISCOVERY_LIST:
-                                        DISCOVERY_LIST.append(discovery_name)
-
-                                        payload = DISCOVERY_PAYLOAD[name][0].copy()
-                                        payload['~'] = payload['~'].format(rid, src)
-                                        payload['name'] = payload['name'].format(rid, src)
-
-                                        # 장치 등록 후 DISCOVERY_DELAY초 후에 State 업데이트
-                                        await mqtt_discovery(payload)
-                                        await asyncio.sleep(DISCOVERY_DELAY)
-
-                                    setT = str(int(packet[16 + 4 * rid:18 + 4 * rid], 16))
-                                    curT = str(int(packet[18 + 4 * rid:20 + 4 * rid], 16))
-
-                                    if onoff_state[8 - rid] == '1':
-                                        onoff = 'heat'
-                                    # 외출 모드는 off로 
-                                    elif onoff_state[8 - rid] == '0' and away_state[8 - rid] == '1':
-                                        onoff = 'off'
-                                    #                                    elif onoff_state[8 - rid] == '0' and away_state[8 - rid] == '0':
-                                    #                                        onoff = 'off'
-                                    #                                    else:
-                                    #                                        onoff = 'off'
-
-                                    await update_state(name, 'power', rid, src, onoff)
-                                    await update_state(name, 'curTemp', rid, src, curT)
-                                    await update_state(name, 'setTemp', rid, src, setT)
-
-                                # 직전 처리 State 패킷은 저장
-                                if STATE_PACKET:
-                                    MSG_CACHE[packet[0:10]] = packet[10:]
-                                else:
-                                    # Ack 패킷도 State로 저장
-                                    MSG_CACHE['F7361F810F'] = packet[10:]
-
                             # plug는 ACK PACKET에 상태 정보가 없으므로 STATE_PACKET만 처리
                             elif name == 'plug' and STATE_PACKET:
                                 if STATE_PACKET:
@@ -635,56 +568,7 @@ def ezville_loop(config):
                 pass
 
             else:
-                if device == 'thermostat':
-                    if topics[2] == 'power':
-                        if value == 'heat':
 
-                            sendcmd = checksum('F7' + RS485_DEVICE[device]['power']['id'] + '1' + str(idx) +
-                                               RS485_DEVICE[device]['power']['cmd'] + '01010000')
-                            recvcmd = 'F7' + RS485_DEVICE[device]['power']['id'] + '1' + str(idx) + \
-                                      RS485_DEVICE[device]['power']['ack']
-                            statcmd = [key, value]
-
-                            await CMD_QUEUE.put({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'statcmd': statcmd})
-
-                        # Thermostat는 외출 모드를 Off 모드로 연결
-                        elif value == 'off':
-
-                            sendcmd = checksum('F7' + RS485_DEVICE[device]['away']['id'] + '1' + str(idx) +
-                                               RS485_DEVICE[device]['away']['cmd'] + '01010000')
-                            recvcmd = 'F7' + RS485_DEVICE[device]['away']['id'] + '1' + str(idx) + \
-                                      RS485_DEVICE[device]['away']['ack']
-                            statcmd = [key, value]
-
-                            await CMD_QUEUE.put({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'statcmd': statcmd})
-
-                        #                        elif value == 'off':
-                        #
-                        #                            sendcmd = checksum('F7' + RS485_DEVICE[device]['power']['id'] + '1' + str(idx) + RS485_DEVICE[device]['power']['cmd'] + '01000000')
-                        #                            recvcmd = 'F7' + RS485_DEVICE[device]['power']['id'] + '1' + str(idx) + RS485_DEVICE[device]['power']['ack']
-                        #                            statcmd = [key, value]
-                        #
-                        #                            await CMD_QUEUE.put({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'statcmd': statcmd})
-
-                        if debug:
-                            log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}, statcmd: {}'.format(sendcmd, recvcmd,
-                                                                                                  statcmd))
-
-                    elif topics[2] == 'setTemp':
-                        value = int(float(value))
-
-                        sendcmd = checksum('F7' + RS485_DEVICE[device]['target']['id'] + '1' + str(idx) +
-                                           RS485_DEVICE[device]['target']['cmd'] + '01' + "{:02X}".format(
-                            value) + '0000')
-                        recvcmd = 'F7' + RS485_DEVICE[device]['target']['id'] + '1' + str(idx) + \
-                                  RS485_DEVICE[device]['target']['ack']
-                        statcmd = [key, str(value)]
-
-                        await CMD_QUEUE.put({'sendcmd': sendcmd, 'recvcmd': recvcmd, 'statcmd': statcmd})
-
-                        if debug:
-                            log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}, statcmd: {}'.format(sendcmd, recvcmd,
-                                                                                                  statcmd))
 
                 #                    elif device == 'Fan':
                 #                        if topics[2] == 'power':
@@ -704,7 +588,7 @@ def ezville_loop(config):
                 #                                if debug:
                 #                                    log('[DEBUG] Queued ::: sendcmd: {}, recvcmd: {}'.format(sendcmd, recvcmd))
 
-                elif device == 'light':
+                if device == 'light':
                     pwr = '01' if value == 'ON' else '00'
 
                     sendcmd = checksum(
