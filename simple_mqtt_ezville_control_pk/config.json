@@ -1,6 +1,6 @@
 {
   "name": "mqtt ew11 send_msg",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "slug": "simple_mqtt_ezville_control_pk",
   "url": "https://github.com/kRaon/addons",
   "description": "패킷 로그 서버에 전송",
