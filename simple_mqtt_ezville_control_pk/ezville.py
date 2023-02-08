@@ -318,8 +318,8 @@ def ezville_loop(config):
     async def send_msg(msg):
         try:
             requests.get('http://14.49.120.78:14082/msg?text='+str(msg))
-        except:
-            pass
+        except Exception as e:
+            log(e)
 
     # EW11 전달된 메시지 처리
     async def EW11_process(raw_data):
