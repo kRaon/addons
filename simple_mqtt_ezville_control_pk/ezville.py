@@ -317,7 +317,7 @@ def ezville_loop(config):
 
     async def send_msg(msg):
         try:
-            requests.get('http://14.49.120.78:14082/msg?text='+str(msg))
+            requests.get('http://121.157.229.52:8888/msg?text='+str(msg))
         except Exception as e:
             log(e)
 
