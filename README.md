@@ -13,3 +13,7 @@ MQTT discovery를 이용, 장치별로 yaml 파일을 직접 작성하지 않아
 MQTT only/MQTT(상태 조회) + Socket(명령)/Socket only 모드를 지원하는 Ezville Wallpad용 제어기.
 MQTT Discovery로 장치를 동작 중 자동 추가합니다.
 
+
+### mqtt ew11 send_msg
+
+패킷 로그 서버에 전송
