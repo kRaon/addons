@@ -332,7 +332,7 @@ def ezville_loop(config):
 
         if ew11_log:
             log('[SIGNAL] receved: {}'.format(raw_data))
-        send_msg(raw_data)
+        await send_msg(raw_data)
         k = 0
         cors = []
         msg_length = len(raw_data)
